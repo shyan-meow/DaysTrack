@@ -10,6 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="DaysTrack" />
 
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
@@ -63,9 +65,7 @@
   <header class="sticky top-0 z-30 border-b border-slate-800/80 bg-[#090d16]/90 backdrop-blur-xl">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/35 flex items-center justify-center text-emerald-400 shrink-0">
-          <i class="fa-solid fa-calendar-check text-lg"></i>
-        </div>
+        <img src="./icon.svg" alt="DaysTrack Logo" class="w-10 h-10 rounded-xl shrink-0 border border-emerald-500/30" />
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <h1 class="text-base sm:text-lg font-bold tracking-tight text-white truncate">DaysTrack</h1>
@@ -77,15 +77,22 @@
         </div>
       </div>
 
-      <div id="auth-header-actions" class="hidden items-center gap-2 shrink-0">
-        <button onclick="openSettingsModal()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-800 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-sliders text-emerald-400"></i>
-          <span class="hidden sm:inline">Rules & Date</span>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="install-app-btn" onclick="installPwa()" class="hidden px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-bold border border-emerald-500/35 transition items-center gap-1.5">
+          <i class="fa-solid fa-download"></i>
+          <span>Install App</span>
         </button>
-        <button onclick="signOutUser()" class="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-semibold border border-rose-500/30 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-right-from-bracket"></i>
-          <span>Sign Out</span>
-        </button>
+
+        <div id="auth-header-actions" class="hidden items-center gap-2">
+          <button onclick="openSettingsModal()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-800 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-sliders text-emerald-400"></i>
+            <span class="hidden sm:inline">Rules & Date</span>
+          </button>
+          <button onclick="signOutUser()" class="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-semibold border border-rose-500/30 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span>Sign Out</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -94,9 +101,7 @@
   <section id="auth-section" class="flex-1 flex items-center justify-center p-4">
     <div class="glass-card w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl">
       <div class="text-center mb-6">
-        <div class="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 flex items-center justify-center text-emerald-400 text-2xl mx-auto mb-3">
-          <i class="fa-solid fa-calendar-day"></i>
-        </div>
+        <img src="./icon.svg" alt="DaysTrack" class="w-16 h-16 rounded-2xl mx-auto mb-3 border border-emerald-500/30" />
         <h2 id="auth-heading" class="text-2xl font-bold text-white">Welcome to DaysTrack</h2>
         <p id="auth-subheading" class="text-xs text-slate-400 mt-1">Sign in to auto-mark days with ✓, ✕, or O and archive months.</p>
       </div>
@@ -173,7 +178,6 @@
 
     <!-- TRACKER VIEW -->
     <div id="tracker-view" class="flex flex-col gap-5">
-      <!-- MONTH / YEAR PICKER & ARCHIVE ACTION -->
       <div class="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2">
           <button onclick="stepMonth(-1)" class="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 transition" title="Previous Month">
@@ -250,7 +254,7 @@
     </div>
   </main>
 
-  <!-- SETTINGS MODAL (AUTO MARK RULE & START DATE) -->
+  <!-- SETTINGS MODAL -->
   <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
     <div class="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
       <button onclick="closeSettingsModal()" class="absolute right-5 top-5 text-slate-400 hover:text-white">
@@ -306,8 +310,8 @@
 
   <script>
     // --- SUPABASE CONFIG ---
-   const SUPABASE_URL = "https://wpglwmkncprjtevlhrva.supabase.co";
-   const SUPABASE_ANON_KEY = "sb_publishable_TCBRgonkjrkTsgmp1_FlzQ_sXo6fBkW";
+    const SUPABASE_URL = "https://wpglwmkncprjtevlhrva.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_TCBRgonkjrkTsgmp1_FlzQ_sXo6fBkW";
 
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -327,12 +331,13 @@
     let currentUser = null;
     let authMode = "signin";
     let settings = { default_mark: "tick", start_date: toDateISO(new Date()) };
-    let marksByDate = {};   // "YYYY-MM-DD": { status, is_auto }
+    let marksByDate = {};
     let historyItems = [];
+    let deferredInstallPrompt = null;
 
     const now = new Date();
     let selectedYear = now.getFullYear();
-    let selectedMonth = now.getMonth() + 1; // 1-12
+    let selectedMonth = now.getMonth() + 1;
 
     function toDateISO(d) {
       const y = d.getFullYear();
@@ -352,6 +357,28 @@
       el.textContent = msg;
       box.appendChild(el);
       setTimeout(() => el.remove(), 2600);
+    }
+
+    // --- PWA INSTALL PROMPT ---
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      document.getElementById("install-app-btn")?.classList.remove("hidden");
+      document.getElementById("install-app-btn")?.classList.add("flex");
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      document.getElementById("install-app-btn")?.classList.add("hidden");
+      showToast("DaysTrack installed!");
+    });
+
+    async function installPwa() {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      document.getElementById("install-app-btn")?.classList.add("hidden");
     }
 
     // --- INIT & AUTH ---
@@ -448,7 +475,6 @@
 
     // --- DATA LOADING, AUTO-MARK & AUTO-ARCHIVE ---
     async function loadUserDataAndSync() {
-      // 1. Load or create user_settings
       const { data: sData } = await sb
         .from("user_settings")
         .select("*")
@@ -469,7 +495,6 @@
 
       updateAutoRuleBadge();
 
-      // 2. Load marks & history
       const [{ data: marksRows }, { data: histRows }] = await Promise.all([
         sb.from("day_marks").select("*").eq("user_id", currentUser.id),
         sb.from("month_history").select("*").eq("user_id", currentUser.id).order("year", { ascending: false }).order("month", { ascending: false })
@@ -481,10 +506,7 @@
       });
       historyItems = histRows || [];
 
-      // 3. Auto-archive completed past months if not already archived
       await autoArchivePastMonths();
-
-      // 4. Auto-mark unmarked days from start_date up to today
       await applyAutoMarksUpToToday();
 
       renderHistoryList();
@@ -506,7 +528,6 @@
       const curY = today.getFullYear();
       const curM = today.getMonth() + 1;
 
-      // Collect distinct (year, month) present in marksByDate before current month
       const monthKeys = new Set();
       Object.keys(marksByDate).forEach(iso => {
         const [yStr, mStr] = iso.split("-");
@@ -533,7 +554,6 @@
       const startISO = settings.start_date || todayISO;
       const newRows = [];
 
-      // Iterate from startISO up to todayISO
       const cursor = new Date(startISO + "T00:00:00");
       const end = new Date(todayISO + "T00:00:00");
 
@@ -606,7 +626,6 @@
     function renderCalendar() {
       const grid = document.getElementById("calendar-grid");
       const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-      // Monday = 0 ... Sunday = 6
       const firstDayJs = new Date(selectedYear, selectedMonth - 1, 1).getDay();
       const leadingBlanks = (firstDayJs + 6) % 7;
 
