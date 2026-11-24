@@ -1,0 +1,10 @@
+{
+  "name": "DaysTrack",
+  "short_name": "DaysTrack",
+  "description": "Track days automatically with tick, cross, or circle marks and monthly history.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#090d16"
+}
