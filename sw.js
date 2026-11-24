@@ -1,5 +1,5 @@
-const CACHE_NAME = "daystrack-v1";
-const CORE_ASSETS = ["./", "./index.html", "./manifest.json"];
+const CACHE_NAME = "daystrack-v2";
+const CORE_ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
