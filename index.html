@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DaysTrack — Smart Day & Monthly History Tracker</title>
+  <meta name="theme-color" content="#090d16" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="DaysTrack" />
+
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#090d16',
+            panel: '#0f172a'
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      background-color: #090d16;
+      color: #f8fafc;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+    }
+    .day-tile {
+      transition: transform 0.12s ease, border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .day-tile:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+    .day-tile:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#090d16] text-slate-100 flex flex-col antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+
+  <!-- UPDATE BANNER -->
+  <div id="sw-update-banner" class="hidden sticky top-0 z-50 bg-gradient-to-r from-emerald-600 to-cyan-600 text-slate-950 px-4 py-2.5 text-xs font-bold flex items-center justify-between gap-3">
+    <span>New version of DaysTrack is ready. Reload to update.</span>
+    <button onclick="reloadApp()" class="px-3 py-1 rounded-lg bg-slate-950 text-emerald-400 text-xs font-bold">Reload</button>
+  </div>
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-30 border-b border-slate-800/80 bg-[#090d16]/90 backdrop-blur-xl">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/35 flex items-center justify-center text-emerald-400 shrink-0">
+          <i class="fa-solid fa-calendar-check text-lg"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white truncate">DaysTrack</h1>
+            <span id="auto-rule-badge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              Auto: ✓ Tick
+            </span>
+          </div>
+          <p id="user-email-label" class="text-xs text-slate-400 truncate">Sign in to sync your days</p>
+        </div>
+      </div>
+
+      <div id="auth-header-actions" class="hidden items-center gap-2 shrink-0">
+        <button onclick="openSettingsModal()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-slate-800 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-sliders text-emerald-400"></i>
+          <span class="hidden sm:inline">Rules & Date</span>
+        </button>
+        <button onclick="signOutUser()" class="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-semibold border border-rose-500/30 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- AUTH SCREEN -->
+  <section id="auth-section" class="flex-1 flex items-center justify-center p-4">
+    <div class="glass-card w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 flex items-center justify-center text-emerald-400 text-2xl mx-auto mb-3">
+          <i class="fa-solid fa-calendar-day"></i>
+        </div>
+        <h2 id="auth-heading" class="text-2xl font-bold text-white">Welcome to DaysTrack</h2>
+        <p id="auth-subheading" class="text-xs text-slate-400 mt-1">Sign in to auto-mark days with ✓, ✕, or O and archive months.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-950 border border-slate-800 mb-5">
+        <button id="tab-signin" type="button" onclick="switchAuthTab('signin')"
+          class="py-2 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition">
+          Sign In
+        </button>
+        <button id="tab-signup" type="button" onclick="switchAuthTab('signup')"
+          class="py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+          Sign Up
+        </button>
+      </div>
+
+      <form id="auth-form" onsubmit="handleEmailAuth(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Email</label>
+          <input id="auth-email" type="email" required placeholder="you@example.com"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Password</label>
+          <input id="auth-password" type="password" required minlength="6" placeholder="••••••••"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500" />
+        </div>
+        <p id="auth-message" class="hidden text-xs font-medium text-rose-400"></p>
+        <button id="auth-submit-btn" type="submit"
+          class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20">
+          Sign In
+        </button>
+      </form>
+
+      <div class="relative my-5 text-center">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+        <span class="relative bg-[#0f172a] px-3 text-[11px] uppercase tracking-wider text-slate-500">or</span>
+      </div>
+
+      <button type="button" onclick="signInWithGoogle()"
+        class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-100 font-semibold text-xs border border-slate-700 transition flex items-center justify-center gap-2.5">
+        <i class="fa-brands fa-google text-emerald-400 text-sm"></i>
+        <span>Continue with Google</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- MAIN TRACKER APP -->
+  <main id="app-section" class="hidden flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-6">
+
+    <!-- VIEW TABS -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <button id="nav-tracker" onclick="switchAppView('tracker')"
+          class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition flex items-center gap-2">
+          <i class="fa-solid fa-grid-2"></i>
+          <span>Current Month</span>
+        </button>
+        <button id="nav-history" onclick="switchAppView('history')"
+          class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800 transition flex items-center gap-2">
+          <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i>
+          <span>History Archive</span>
+          <span id="history-count-badge" class="px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px]">0</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 text-xs text-slate-400">
+        <span>Click any day:</span>
+        <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-bold">✓</span>
+        <span class="px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 font-bold">✕</span>
+        <span class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold">O</span>
+        <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400">Clear</span>
+      </div>
+    </div>
+
+    <!-- TRACKER VIEW -->
+    <div id="tracker-view" class="flex flex-col gap-5">
+      <!-- MONTH / YEAR PICKER & ARCHIVE ACTION -->
+      <div class="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="stepMonth(-1)" class="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 transition" title="Previous Month">
+            <i class="fa-solid fa-chevron-left text-xs"></i>
+          </button>
+
+          <select id="month-select" onchange="onMonthYearChange()"
+            class="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm font-semibold text-white focus:outline-none focus:border-emerald-500">
+          </select>
+
+          <select id="year-select" onchange="onMonthYearChange()"
+            class="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm font-semibold text-white focus:outline-none focus:border-emerald-500">
+          </select>
+
+          <button onclick="stepMonth(1)" class="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 transition" title="Next Month">
+            <i class="fa-solid fa-chevron-right text-xs"></i>
+          </button>
+
+          <button onclick="jumpToCurrentMonth()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-emerald-400 transition">
+            Today
+          </button>
+        </div>
+
+        <button onclick="archiveSelectedMonth()"
+          class="px-4 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition flex items-center gap-2">
+          <i class="fa-solid fa-box-archive"></i>
+          <span>Save Month to History</span>
+        </button>
+      </div>
+
+      <!-- SUMMARY STATS -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="glass-card rounded-2xl p-4">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Ticks (✓)</span>
+          <p id="stat-ticks" class="text-2xl font-bold text-emerald-400 mt-1">0</p>
+        </div>
+        <div class="glass-card rounded-2xl p-4">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Crosses (✕)</span>
+          <p id="stat-crosses" class="text-2xl font-bold text-rose-400 mt-1">0</p>
+        </div>
+        <div class="glass-card rounded-2xl p-4">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Circles (O)</span>
+          <p id="stat-circles" class="text-2xl font-bold text-amber-400 mt-1">0</p>
+        </div>
+        <div class="glass-card rounded-2xl p-4">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Marked Days</span>
+          <p id="stat-total" class="text-2xl font-bold text-white mt-1">0 / 30</p>
+        </div>
+      </div>
+
+      <!-- CALENDAR GRID -->
+      <div class="glass-card rounded-2xl p-4 sm:p-5">
+        <div class="grid grid-cols-7 gap-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+          <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+        </div>
+        <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY VIEW -->
+    <div id="history-view" class="hidden flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Archived Months</h2>
+          <p class="text-xs text-slate-400">Completed or saved months are stored here. View any month or delete old records.</p>
+        </div>
+      </div>
+
+      <div id="history-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+      <div id="history-empty" class="hidden glass-card rounded-2xl p-10 text-center text-slate-400 text-sm">
+        No archived months yet. Months automatically archive when you move into a new month, or you can click <strong>Save Month to History</strong> anytime.
+      </div>
+    </div>
+  </main>
+
+  <!-- SETTINGS MODAL (AUTO MARK RULE & START DATE) -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
+      <button onclick="closeSettingsModal()" class="absolute right-5 top-5 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-emerald-400"></i>
+        <span>Auto-Mark Rule & Start Date</span>
+      </h3>
+
+      <form onsubmit="saveSettings(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Default Auto-Mark Symbol</label>
+          <select id="setting-default-mark"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-emerald-500">
+            <option value="tick">Tick (✓) — Default</option>
+            <option value="cross">Cross (✕)</option>
+            <option value="circle">Circle (O)</option>
+            <option value="off">Off (Manual marking only)</option>
+          </select>
+          <p class="text-[11px] text-slate-500 mt-1">Unmarked past days from your start date up to today will automatically get this mark.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tracking Start Date</label>
+          <input id="setting-start-date" type="date" required
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold">Save & Sync</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- VIEW ARCHIVED MONTH MODAL -->
+  <div id="history-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div class="glass-card w-full max-w-lg rounded-3xl p-6 shadow-2xl relative">
+      <button onclick="closeHistoryModal()" class="absolute right-5 top-5 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+      <h3 id="history-modal-title" class="text-lg font-bold text-white mb-1">Month Snapshot</h3>
+      <p id="history-modal-summary" class="text-xs text-slate-400 mb-4"></p>
+      <div id="history-modal-grid" class="grid grid-cols-7 gap-2 max-h-80 overflow-y-auto pr-1"></div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <script>
+    // --- SUPABASE CONFIG ---
+   const SUPABASE_URL = "https://wpglwmkncprjtevlhrva.supabase.co";
+   const SUPABASE_ANON_KEY = "sb_publishable_TCBRgonkjrkTsgmp1_FlzQ_sXo6fBkW";
+
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const MONTH_NAMES = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    const MARK_META = {
+      tick:   { symbol: "✓", label: "Tick",   badgeClass: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
+      cross:  { symbol: "✕", label: "Cross",  badgeClass: "bg-rose-500/20 text-rose-300 border-rose-500/40" },
+      circle: { symbol: "O", label: "Circle", badgeClass: "bg-amber-500/20 text-amber-300 border-amber-500/40" }
+    };
+
+    const CYCLE_ORDER = ["tick", "cross", "circle", null];
+
+    let currentUser = null;
+    let authMode = "signin";
+    let settings = { default_mark: "tick", start_date: toDateISO(new Date()) };
+    let marksByDate = {};   // "YYYY-MM-DD": { status, is_auto }
+    let historyItems = [];
+
+    const now = new Date();
+    let selectedYear = now.getFullYear();
+    let selectedMonth = now.getMonth() + 1; // 1-12
+
+    function toDateISO(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function pad2(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function showToast(msg, isError = false) {
+      const box = document.getElementById("toast-container");
+      const el = document.createElement("div");
+      el.className = `px-4 py-3 rounded-2xl bg-slate-900 border ${isError ? "border-rose-500/40 text-rose-200" : "border-emerald-500/40 text-emerald-100"} text-xs font-semibold shadow-xl`;
+      el.textContent = msg;
+      box.appendChild(el);
+      setTimeout(() => el.remove(), 2600);
+    }
+
+    // --- INIT & AUTH ---
+    window.addEventListener("DOMContentLoaded", async () => {
+      initMonthYearSelectors();
+      setupServiceWorker();
+
+      const { data: { session } } = await sb.auth.getSession();
+      handleSessionChange(session);
+
+      sb.auth.onAuthStateChange((_event, session) => {
+        handleSessionChange(session);
+      });
+    });
+
+    async function handleSessionChange(session) {
+      currentUser = session?.user || null;
+      const authSec = document.getElementById("auth-section");
+      const appSec = document.getElementById("app-section");
+      const headerActions = document.getElementById("auth-header-actions");
+      const emailLabel = document.getElementById("user-email-label");
+
+      if (!currentUser) {
+        authSec.classList.remove("hidden");
+        appSec.classList.add("hidden");
+        headerActions.classList.add("hidden");
+        headerActions.classList.remove("flex");
+        emailLabel.textContent = "Sign in to sync your days";
+        return;
+      }
+
+      authSec.classList.add("hidden");
+      appSec.classList.remove("hidden");
+      headerActions.classList.add("flex");
+      headerActions.classList.remove("hidden");
+      emailLabel.textContent = currentUser.email || "Authenticated User";
+
+      await loadUserDataAndSync();
+    }
+
+    function switchAuthTab(mode) {
+      authMode = mode;
+      const signInBtn = document.getElementById("tab-signin");
+      const signUpBtn = document.getElementById("tab-signup");
+      const heading = document.getElementById("auth-heading");
+      const submitBtn = document.getElementById("auth-submit-btn");
+      const msg = document.getElementById("auth-message");
+      msg.classList.add("hidden");
+
+      if (mode === "signin") {
+        signInBtn.className = "py-2 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition";
+        signUpBtn.className = "py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+        heading.textContent = "Welcome Back";
+        submitBtn.textContent = "Sign In";
+      } else {
+        signUpBtn.className = "py-2 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 transition";
+        signInBtn.className = "py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+        heading.textContent = "Create Account";
+        submitBtn.textContent = "Sign Up";
+      }
+    }
+
+    async function handleEmailAuth(e) {
+      e.preventDefault();
+      const email = document.getElementById("auth-email").value.trim();
+      const password = document.getElementById("auth-password").value;
+      const msg = document.getElementById("auth-message");
+      msg.classList.add("hidden");
+
+      const res = authMode === "signup"
+        ? await sb.auth.signUp({ email, password })
+        : await sb.auth.signInWithPassword({ email, password });
+
+      if (res.error) {
+        msg.textContent = res.error.message;
+        msg.classList.remove("hidden");
+      } else if (authMode === "signup") {
+        showToast("Account created! You're signed in.");
+      }
+    }
+
+    async function signInWithGoogle() {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.href.split("#")[0] }
+      });
+      if (error) showToast(error.message, true);
+    }
+
+    async function signOutUser() {
+      await sb.auth.signOut();
+      showToast("Signed out");
+    }
+
+    // --- DATA LOADING, AUTO-MARK & AUTO-ARCHIVE ---
+    async function loadUserDataAndSync() {
+      // 1. Load or create user_settings
+      const { data: sData } = await sb
+        .from("user_settings")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (sData) {
+        settings = sData;
+      } else {
+        const defaultRow = {
+          user_id: currentUser.id,
+          default_mark: "tick",
+          start_date: toDateISO(new Date())
+        };
+        await sb.from("user_settings").upsert(defaultRow);
+        settings = defaultRow;
+      }
+
+      updateAutoRuleBadge();
+
+      // 2. Load marks & history
+      const [{ data: marksRows }, { data: histRows }] = await Promise.all([
+        sb.from("day_marks").select("*").eq("user_id", currentUser.id),
+        sb.from("month_history").select("*").eq("user_id", currentUser.id).order("year", { ascending: false }).order("month", { ascending: false })
+      ]);
+
+      marksByDate = {};
+      (marksRows || []).forEach(r => {
+        marksByDate[r.mark_date] = { status: r.status, is_auto: r.is_auto };
+      });
+      historyItems = histRows || [];
+
+      // 3. Auto-archive completed past months if not already archived
+      await autoArchivePastMonths();
+
+      // 4. Auto-mark unmarked days from start_date up to today
+      await applyAutoMarksUpToToday();
+
+      renderHistoryList();
+      renderCalendar();
+    }
+
+    function updateAutoRuleBadge() {
+      const badge = document.getElementById("auto-rule-badge");
+      const m = settings.default_mark;
+      if (m === "off") {
+        badge.textContent = "Auto: Off";
+      } else {
+        badge.textContent = `Auto: ${MARK_META[m].symbol} ${MARK_META[m].label}`;
+      }
+    }
+
+    async function autoArchivePastMonths() {
+      const today = new Date();
+      const curY = today.getFullYear();
+      const curM = today.getMonth() + 1;
+
+      // Collect distinct (year, month) present in marksByDate before current month
+      const monthKeys = new Set();
+      Object.keys(marksByDate).forEach(iso => {
+        const [yStr, mStr] = iso.split("-");
+        const y = Number(yStr);
+        const m = Number(mStr);
+        if (y < curY || (y === curY && m < curM)) {
+          monthKeys.add(`${y}-${m}`);
+        }
+      });
+
+      for (const key of monthKeys) {
+        const [y, m] = key.split("-").map(Number);
+        const already = historyItems.some(h => h.year === y && h.month === m);
+        if (!already) {
+          await archiveMonthInternal(y, m, false);
+        }
+      }
+    }
+
+    async function applyAutoMarksUpToToday() {
+      if (settings.default_mark === "off") return;
+
+      const todayISO = toDateISO(new Date());
+      const startISO = settings.start_date || todayISO;
+      const newRows = [];
+
+      // Iterate from startISO up to todayISO
+      const cursor = new Date(startISO + "T00:00:00");
+      const end = new Date(todayISO + "T00:00:00");
+
+      while (cursor <= end) {
+        const iso = toDateISO(cursor);
+        if (!marksByDate[iso]) {
+          marksByDate[iso] = { status: settings.default_mark, is_auto: true };
+          newRows.push({
+            user_id: currentUser.id,
+            mark_date: iso,
+            status: settings.default_mark,
+            is_auto: true
+          });
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      if (newRows.length > 0) {
+        await sb.from("day_marks").upsert(newRows, { onConflict: "user_id,mark_date" });
+      }
+    }
+
+    // --- CALENDAR & MARKING ---
+    function initMonthYearSelectors() {
+      const mSel = document.getElementById("month-select");
+      const ySel = document.getElementById("year-select");
+
+      mSel.innerHTML = MONTH_NAMES.map((name, idx) =>
+        `<option value="${idx + 1}" ${idx + 1 === selectedMonth ? "selected" : ""}>${name}</option>`
+      ).join("");
+
+      const baseYear = now.getFullYear();
+      let yHtml = "";
+      for (let y = baseYear - 5; y <= baseYear + 5; y++) {
+        yHtml += `<option value="${y}" ${y === selectedYear ? "selected" : ""}>${y}</option>`;
+      }
+      ySel.innerHTML = yHtml;
+    }
+
+    function syncSelectorsToState() {
+      document.getElementById("month-select").value = String(selectedMonth);
+      document.getElementById("year-select").value = String(selectedYear);
+    }
+
+    function onMonthYearChange() {
+      selectedMonth = Number(document.getElementById("month-select").value);
+      selectedYear = Number(document.getElementById("year-select").value);
+      renderCalendar();
+    }
+
+    function stepMonth(delta) {
+      let m = selectedMonth + delta;
+      let y = selectedYear;
+      if (m < 1) { m = 12; y--; }
+      if (m > 12) { m = 1; y++; }
+      selectedMonth = m;
+      selectedYear = y;
+      syncSelectorsToState();
+      renderCalendar();
+    }
+
+    function jumpToCurrentMonth() {
+      const t = new Date();
+      selectedYear = t.getFullYear();
+      selectedMonth = t.getMonth() + 1;
+      syncSelectorsToState();
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById("calendar-grid");
+      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+      // Monday = 0 ... Sunday = 6
+      const firstDayJs = new Date(selectedYear, selectedMonth - 1, 1).getDay();
+      const leadingBlanks = (firstDayJs + 6) % 7;
+
+      const todayISO = toDateISO(new Date());
+      let ticks = 0, crosses = 0, circles = 0, markedCount = 0;
+
+      let html = "";
+      for (let i = 0; i < leadingBlanks; i++) {
+        html += `<div class="h-16 sm:h-20 rounded-xl bg-slate-950/30 border border-transparent"></div>`;
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = `${selectedYear}-${pad2(selectedMonth)}-${pad2(d)}`;
+        const entry = marksByDate[iso];
+        const status = entry?.status || null;
+        const isToday = iso === todayISO;
+
+        if (status === "tick") { ticks++; markedCount++; }
+        else if (status === "cross") { crosses++; markedCount++; }
+        else if (status === "circle") { circles++; markedCount++; }
+
+        const meta = status ? MARK_META[status] : null;
+        const cardStyle = meta
+          ? `${meta.badgeClass} border`
+          : "bg-slate-950/80 text-slate-300 border-slate-800 hover:border-slate-700";
+
+        html += `
+          <button type="button" onclick="cycleDayMark('${iso}')"
+            class="day-tile h-16 sm:h-20 rounded-xl p-2 flex flex-col justify-between text-left ${cardStyle} ${isToday ? "ring-2 ring-emerald-400" : ""}">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-xs font-bold">${d}</span>
+              ${entry?.is_auto ? `<span class="text-[9px] uppercase opacity-70">auto</span>` : ""}
+            </div>
+            <div class="text-center text-lg sm:text-xl font-extrabold leading-none">
+              ${meta ? meta.symbol : `<span class="text-slate-700 text-xs font-normal">+</span>`}
+            </div>
+          </button>
+        `;
+      }
+
+      grid.innerHTML = html;
+      document.getElementById("stat-ticks").textContent = ticks;
+      document.getElementById("stat-crosses").textContent = crosses;
+      document.getElementById("stat-circles").textContent = circles;
+      document.getElementById("stat-total").textContent = `${markedCount} / ${daysInMonth}`;
+    }
+
+    async function cycleDayMark(iso) {
+      const current = marksByDate[iso]?.status || null;
+      const idx = CYCLE_ORDER.indexOf(current);
+      const next = CYCLE_ORDER[(idx + 1) % CYCLE_ORDER.length];
+
+      if (next) {
+        marksByDate[iso] = { status: next, is_auto: false };
+        renderCalendar();
+        await sb.from("day_marks").upsert({
+          user_id: currentUser.id,
+          mark_date: iso,
+          status: next,
+          is_auto: false
+        }, { onConflict: "user_id,mark_date" });
+      } else {
+        delete marksByDate[iso];
+        renderCalendar();
+        await sb.from("day_marks").delete().eq("user_id", currentUser.id).eq("mark_date", iso);
+      }
+    }
+
+    // --- HISTORY ARCHIVE ---
+    function switchAppView(view) {
+      const trackerView = document.getElementById("tracker-view");
+      const historyView = document.getElementById("history-view");
+      const navTracker = document.getElementById("nav-tracker");
+      const navHistory = document.getElementById("nav-history");
+
+      if (view === "tracker") {
+        trackerView.classList.remove("hidden");
+        historyView.classList.add("hidden");
+        navTracker.className = "px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 transition flex items-center gap-2";
+        navHistory.className = "px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800 transition flex items-center gap-2";
+      } else {
+        trackerView.classList.add("hidden");
+        historyView.classList.remove("hidden");
+        historyView.classList.add("flex");
+        navHistory.className = "px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 text-slate-950 transition flex items-center gap-2";
+        navTracker.className = "px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800 transition flex items-center gap-2";
+        renderHistoryList();
+      }
+    }
+
+    async function archiveSelectedMonth() {
+      await archiveMonthInternal(selectedYear, selectedMonth, true);
+      renderHistoryList();
+    }
+
+    async function archiveMonthInternal(year, month, notify) {
+      const prefix = `${year}-${pad2(month)}-`;
+      const daysData = {};
+      let ticks = 0, crosses = 0, circles = 0;
+
+      Object.entries(marksByDate).forEach(([iso, val]) => {
+        if (iso.startsWith(prefix) && val?.status) {
+          daysData[iso] = val.status;
+          if (val.status === "tick") ticks++;
+          else if (val.status === "cross") crosses++;
+          else if (val.status === "circle") circles++;
+        }
+      });
+
+      const totalDays = new Date(year, month, 0).getDate();
+      const summary = { ticks, crosses, circles, totalDays };
+
+      const { data, error } = await sb
+        .from("month_history")
+        .upsert({
+          user_id: currentUser.id,
+          year,
+          month,
+          summary,
+          days_data: daysData,
+          archived_at: new Date().toISOString()
+        }, { onConflict: "user_id,year,month" })
+        .select()
+        .single();
+
+      if (!error && data) {
+        const filtered = historyItems.filter(h => !(h.year === year && h.month === month));
+        historyItems = [data, ...filtered].sort((a, b) => (b.year - a.year) || (b.month - a.month));
+        if (notify) showToast(`Archived ${MONTH_NAMES[month - 1]} ${year} to History!`);
+      }
+    }
+
+    function renderHistoryList() {
+      const listEl = document.getElementById("history-list");
+      const emptyEl = document.getElementById("history-empty");
+      const badge = document.getElementById("history-count-badge");
+      badge.textContent = String(historyItems.length);
+
+      if (historyItems.length === 0) {
+        listEl.innerHTML = "";
+        emptyEl.classList.remove("hidden");
+        return;
+      }
+
+      emptyEl.classList.add("hidden");
+      listEl.innerHTML = historyItems.map(item => {
+        const s = item.summary || { ticks: 0, crosses: 0, circles: 0, totalDays: 30 };
+        return `
+          <div class="glass-card rounded-2xl p-4 flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="text-base font-bold text-white">${MONTH_NAMES[item.month - 1]} ${item.year}</h3>
+                <p class="text-[11px] text-slate-500">Saved ${new Date(item.archived_at).toLocaleDateString()}</p>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button onclick="openHistoryDetail('${item.id}')" class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-cyan-300 transition">
+                  View
+                </button>
+                <button onclick="deleteHistoryItem('${item.id}')" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-xs font-semibold text-rose-300 transition">
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 text-xs font-bold">
+              <span class="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300">✓ ${s.ticks}</span>
+              <span class="px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-300">✕ ${s.crosses}</span>
+              <span class="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300">O ${s.circles}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function openHistoryDetail(id) {
+      const item = historyItems.find(h => h.id === id);
+      if (!item) return;
+
+      const s = item.summary || { ticks: 0, crosses: 0, circles: 0, totalDays: 30 };
+      document.getElementById("history-modal-title").textContent = `${MONTH_NAMES[item.month - 1]} ${item.year}`;
+      document.getElementById("history-modal-summary").textContent = `✓ ${s.ticks}  •  ✕ ${s.crosses}  •  O ${s.circles}`;
+
+      const grid = document.getElementById("history-modal-grid");
+      const daysMap = item.days_data || {};
+      let html = "";
+      for (let d = 1; d <= s.totalDays; d++) {
+        const iso = `${item.year}-${pad2(item.month)}-${pad2(d)}`;
+        const st = daysMap[iso];
+        const meta = st ? MARK_META[st] : null;
+        html += `
+          <div class="h-12 rounded-xl p-1.5 flex flex-col justify-between text-center border ${meta ? meta.badgeClass : "bg-slate-950 border-slate-800 text-slate-500"}">
+            <span class="text-[10px] font-bold text-left">${d}</span>
+            <span class="text-sm font-extrabold">${meta ? meta.symbol : "—"}</span>
+          </div>
+        `;
+      }
+      grid.innerHTML = html;
+
+      const modal = document.getElementById("history-detail-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeHistoryModal() {
+      const modal = document.getElementById("history-detail-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function deleteHistoryItem(id) {
+      historyItems = historyItems.filter(h => h.id !== id);
+      renderHistoryList();
+      await sb.from("month_history").delete().eq("user_id", currentUser.id).eq("id", id);
+      showToast("History entry deleted");
+    }
+
+    // --- SETTINGS MODAL ---
+    function openSettingsModal() {
+      document.getElementById("setting-default-mark").value = settings.default_mark || "tick";
+      document.getElementById("setting-start-date").value = settings.start_date || toDateISO(new Date());
+      const modal = document.getElementById("settings-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeSettingsModal() {
+      const modal = document.getElementById("settings-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function saveSettings(e) {
+      e.preventDefault();
+      const nextMark = document.getElementById("setting-default-mark").value;
+      const nextStart = document.getElementById("setting-start-date").value;
+
+      settings = {
+        ...settings,
+        user_id: currentUser.id,
+        default_mark: nextMark,
+        start_date: nextStart,
+        updated_at: new Date().toISOString()
+      };
+
+      await sb.from("user_settings").upsert(settings);
+      updateAutoRuleBadge();
+      await applyAutoMarksUpToToday();
+      renderCalendar();
+      closeSettingsModal();
+      showToast("Settings saved & synced!");
+    }
+
+    // --- SERVICE WORKER ---
+    let swReg = null;
+    function setupServiceWorker() {
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then(reg => {
+        swReg = reg;
+        reg.addEventListener("updatefound", () => {
+          const nw = reg.installing;
+          nw?.addEventListener("statechange", () => {
+            if (nw.state === "installed" && navigator.serviceWorker.controller) {
+              document.getElementById("sw-update-banner")?.classList.remove("hidden");
+            }
+          });
+        });
+      }).catch(() => {});
+    }
+
+    function reloadApp() {
+      if (swReg?.waiting) swReg.waiting.postMessage({ type: "SKIP_WAITING" });
+      window.location.reload();
+    }
+  </script>
+</body>
+</html>
